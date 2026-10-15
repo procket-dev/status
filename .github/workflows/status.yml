@@ -1,0 +1,69 @@
+name: Status
+
+# Checks Procket every 5 minutes and publishes status.procket.dev to GitHub
+# Pages. Also re-renders at once when an incident issue is opened, updated or
+# closed. Scheduled runs are best effort: GitHub may start them a few minutes
+# late.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      start_fresh:
+        description: Start the history afresh rather than reading the live site's (first run only)
+        type: boolean
+        default: false
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, deleted]
+  issue_comment:
+    types: [created, edited, deleted]
+
+permissions:
+  contents: write # the monthly keep-alive commit
+  issues: read    # incidents are issues; nothing is opened automatically
+  pages: write
+  id-token: write # deploying to Pages
+
+concurrency:
+  group: status
+  cancel-in-progress: false
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        # Each run reads the history back from the live site, and publishes
+        # nothing if it cannot. The first run has no live site to read.
+        run: |
+          state=()
+          if [ "$START_FRESH" = true ]; then state=(--state ""); fi
+          python3 check.py --config config.json --out site "${state[@]}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          START_FRESH: ${{ inputs.start_fresh }}
+      - name: Keep the schedule alive
+        # GitHub turns off scheduled workflows in a public repository after 60
+        # days without activity. check.py asks for this about once a month.
+        if: steps.check.outputs.keepalive == 'true'
+        run: |
+          date -u +%Y-%m-%d > .keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .keepalive
+          git commit -m "Keep the scheduled status check running"
+          git push
+      - if: steps.check.outputs.publish == 'true'
+        uses: actions/configure-pages@v5
+      - if: steps.check.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - if: steps.check.outputs.publish == 'true'
+        id: deploy
+        uses: actions/deploy-pages@v4

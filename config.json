@@ -1,0 +1,26 @@
+{
+  "title": "Procket status",
+  "home": "https://procket.dev",
+  "site_url": "https://status.procket.dev",
+  "domain": "status.procket.dev",
+  "checks": [
+    {
+      "id": "service",
+      "name": "Service",
+      "description": "Recording prompts, pull request comments, sign-in and the web app",
+      "url": "https://app.procket.dev/readyz"
+    },
+    {
+      "id": "downloads",
+      "name": "Downloads",
+      "description": "Installing and updating the client",
+      "url": "https://get.procket.dev/latest.json"
+    },
+    {
+      "id": "website",
+      "name": "Website",
+      "description": "procket.dev",
+      "url": "https://procket.dev/"
+    }
+  ]
+}
